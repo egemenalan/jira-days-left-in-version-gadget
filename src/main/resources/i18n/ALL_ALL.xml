@@ -1,0 +1,16 @@
+<messagebundle>
+    <msg name="gadget.days.left.title">Days Left</msg>
+    <msg name="gadget.description">Displays the days remaining in specified project version.</msg>
+    <msg name="gadget.days.left.subtitle">Days Left: {0} - {1}</msg>
+
+    <msg name="gadget.days.left.description">Displays the days remaining in specified project iteration</msg>
+    <msg name="gadget.days.left.daysAgo">Days Ago</msg>
+    <msg name="gadget.days.left.today">Today!</msg>
+    <msg name="gadget.days.left.daysRemaining">Days Remaining</msg>
+    <msg name="gadget.days.left.autoOption">Next Release Due (auto)</msg>
+    <msg name="gadget.days.left.noReleaseDate">None</msg>
+    <msg name="gadget.days.left.noVersionWarning">Selected project has no unreleased versions</msg>
+    <msg name="gadget.days.left.noReleaseDatesWarning">Selected project has no versions with future release dates.</msg>
+    <msg name="gadget.days.left.configTitle">Days Left</msg>
+    <msg name="gadget.days.left.releaseDate">Release Date</msg>
+</messagebundle>

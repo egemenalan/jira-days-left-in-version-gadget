@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Module>
+    <ModulePrefs title="__MSG_gadget.days.left.title_"
+                 directory_title="__MSG_gadget.days.left.title__"
+                 description="__MSG_gadget.days.left.description__">
+        <Require feature="dynamic-height"/>
+        <Require feature="oauthpopup"/>
+        <Require feature="setprefs"/>
+        <Require feature="settitle"/>
+        <Require feature="views"/>
+        <Optional feature="atlassian.util"/>
+        <Optional feature="gadget-directory">
+            <Param name="categories">
+                . JIRA
+            </Param>
+        </Optional>
+        #oauth
+        #supportedLocales("gadget.common,gadget.days.left")
+        #supportLocales
+    </ModulePrefs>
+    <UserPref name="isConfigured" datatype="hidden" default_value="false"/>
+    <UserPref name="firstTime" datatype="hidden" default_value="true"/>
+    <UserPref name="projectId" datatype="hidden"/>
+    <UserPref name="version" datatype="hidden" default_value="auto"/>
+    <Content type="html">
+    <![CDATA[
+        #requireResource("com.atlassian.jira.gadgets:common")
+        <!--#requireResource("com.atlassian.jira.gadgets:jira-global")-->
+        #includeResources()
+
+        <style type="text/css">
+            #container {
+                padding: 15px;
+            }
+
+            #no-versions-warning {
+                line-height: 1.4;
+                font-size: 12px;
+            }
+
+            #days-box {
+                text-align: center;
+            }
+
+            #days-value {
+                text-align: center;
+                font-size: 5em;
+            }
+
+            #days-text {
+                padding-bottom: 15px;
+            }
+
+            #version-link {
+                text-align: center;
+            }
+
+            #no-future-versions-warning {
+                padding: 15px;
+            }
+
+            .view {
+                padding: 0.5em 1em;
+            }
+
+            .overdue {
+                color: #cc0000;
+            }
+
+            .future-release {
+                color: #00cc00;
+            }
+
+            .today {
+                color: #cc0000;
+            }
+
+            #days-text .today {
+                font-weight: bold;
+            }
+
+            .icon {
+                padding-top: 3px;
+                padding-right: 3px;
+            }
+
+            .disabled {
+                color: #C0C0C0;
+            }
+        </style>
+        <script type="text/javascript">
+        (function ()
+        {
+
+            var gadget = AJS.Gadget({
+                baseUrl: "__ATLASSIAN_BASE_URL__",
+                useOauth: "/rest/gadget/1.0/currentUser",
+                config: {
+                    descriptor: function(args)
+                    {
+
+                        var gadget = this;
+                        gadgets.window.setTitle("__MSG_gadget.days.left.configTitle__");
+                        var projectPicker = AJS.gadget.fields.projectPicker(gadget, "projectId", args.projectOptions);
+
+                        return {
+
+                            theme : function()
+                            {
+                                if (gadgets.window.getViewportDimensions().width < 450)
+                                {
+                                    return "gdt top-label";
+                                }
+                                else
+                                {
+                                    return "gdt";
+                                }
+                            }(),
+                            fields: [
+                                projectPicker,
+                                AJS.gadget.fields.nowConfigured()
+                            ]
+                        };
+                    },
+                    args: function()
+                    {
+                        return [
+                            {
+                                key: "projectOptions",
+                                ajaxOptions:  "/rest/gadget/1.0/filtersAndProjects?showFilters=false"
+
+                            }
+
+
+                        ];
+                    }()
+                },
+                view: {
+                    onResizeAdjustHeight: true,
+                    enableReload: true,
+                    template: function (args)
+                    {
+                        var versionData = args.versions;
+                        var currentVersion;
+                        var gadget = this;
+                        var baseUrl = AJS.$.ajaxSettings.baseUrl;
+                        var optionSelected = false;
+                        var projectVersionList;
+
+                        if (!versionData)
+                        {
+                            projectVersionList = null;
+                        }
+                        else
+                        {
+                            projectVersionList = AJS.$(args.versions.versionsForProject);
+                        }
+
+
+                        var getContainer = function()
+                        {
+                            var container = AJS.$("<div/>").attr('id', 'container').appendTo(gadget.getView().empty());
+                            return function()
+                            {
+                                return container;
+                            }
+                        }();
+                        var hasVersionWithReleaseDate = function(projectVersionList)
+                        {
+                            var hasReleaseDate = false;
+                            projectVersionList.each(function()
+                            {
+                                if (this.releaseDate != "")
+                                {
+                                    hasReleaseDate = true;
+                                }
+                            });
+                            return hasReleaseDate;
+                        };
+                        var setTitle = function(projectVersionList)
+                        {
+                            if (!projectVersionList || !hasVersionWithReleaseDate(projectVersionList))
+                            {
+                                gadgets.window.setTitle(gadget.getMsg("gadget.days.left.title"));
+                            }
+                            else
+                            {
+                                gadgets.window.setTitle(AJS.format("__MSG_gadget.days.left.subtitle__", currentVersion.owningProject.name, currentVersion.name));
+
+                            }
+                        };
+
+                        var versionSelector = function(projectVersionList)
+                        {
+                            var control = AJS.$("<select/>");
+                            AJS.$("<option/>").attr({id:'next-release-option', value:'auto'}).text(gadget.getMsg('gadget.days.left.autoOption')).appendTo(control);
+
+                            projectVersionList.each(function()
+                            {
+                                var option = AJS.$("<option/>").attr({ value:  this.id});
+                                if (this.releaseDate == "")
+                                {
+                                    option.attr("disabled", "true");
+                                    option.addClass('disabled');
+                                    option.append(this.name + ' - ' + gadget.getMsg('gadget.days.left.noReleaseDate'));
+                                }
+                                else
+                                {
+                                    option.append(this.name + ' - ' + this.releaseDate);
+                                }
+
+                                if (this.id == gadget.getPref("version"))
+                                {
+                                    option.attr({selected: "selected"});
+                                    currentVersion = this;
+                                    optionSelected = true;
+
+                                }
+                                control.append(option);
+                            });
+                            control.change(function(event)
+                            {
+                                gadget.savePref("version", AJS.$(this).val());
+                                gadget.showView(true);
+                            });
+                            //generate image on side of select bar
+                            AJS.$("#selection").append(AJS.$("<img/>").attr({
+                                src: baseUrl + "/images/icons/box_16.gif",
+                                height: 16,
+                                width: 16,
+                                title: gadget.getMsg("gadget.roadmap.status.unreleased"),
+                                alt: gadget.getMsg("gadget.roadmap.status.unreleased"),
+                                class: "icon"
+                            }));
+                            AJS.$("#selection").append(control);
+                            //try auto select option if no option is selected
+                            if (!optionSelected)
+                            {
+                                AJS.$('#next-release-option').attr({selected: "selected"});
+                                currentVersion = projectVersionList[0];
+                            }
+                        };
+                        var daysLeftDisplay = function(projectVersionList, container)
+                        {
+                            var projectLink = baseUrl + "/browse/" + currentVersion.owningProject.key
+                            var versionLink = projectLink + "/fixforversion/" + currentVersion.id
+
+                            container.append("<div id ='days-box'/>");
+                            AJS.$("<div/>").attr("id", "days-value").appendTo("#days-box");
+                            AJS.$("<div/>").attr("id", "days-text").appendTo("#days-box");
+                            AJS.$("<div/>").attr("id", "version-link").appendTo("#days-box");
+
+                            AJS.$("<a/>").attr({
+                                href: projectLink,
+                                id:"projectLink"})
+                                    .appendTo('#version-link');
+
+                            AJS.$("#version-link").append(" : ");
+
+
+                            AJS.$("<a/>").attr({
+                                href: versionLink,
+                                id: "versionLink"})
+                                    .appendTo("#version-link");
+
+                            if (hasVersionWithReleaseDate(projectVersionList))
+                            {
+                                //if the currentVersion has no release date find the next version due
+
+                                AJS.$("<div/>").attr("id", "days-text").appendTo("#days-box");
+                                AJS.$("<div/>").attr("id", "version-link").appendTo("#days-box");
+
+                                AJS.$("#days-value").append(Math.abs(currentVersion.daysRemaining));
+
+                                AJS.$('#projectLink').text(currentVersion.owningProject.name);
+                                AJS.$('#versionLink').text(currentVersion.name);
+
+                                AJS.$('<div/ >').attr('id', 'release-date').text(gadget.getMsg("gadget.days.left.releaseDate") + " : " + currentVersion.releaseDate).appendTo('#version-link')
+
+                                if (currentVersion.daysRemaining < 0)
+                                {
+                                    AJS.$('#days-value').addClass('overdue');
+                                    AJS.$('#release-date').addClass('overdue');
+
+                                    AJS.$('#days-text').text(gadget.getMsg("gadget.days.left.daysAgo"))
+
+                                }
+                                else if (currentVersion.daysRemaining == 0)
+                                {
+                                    AJS.$('#days-value').addClass('today');
+                                    AJS.$('#release-date').addClass('today');
+                                    AJS.$('#days-text').addClass('today').text(gadget.getMsg("gadget.days.left.today"))
+                                }
+                                else
+                                {
+                                    AJS.$('#days-value').addClass('future-release');
+                                    AJS.$('#release-date').addClass('future-release');
+
+                                    AJS.$('#days-text').text(gadget.getMsg("gadget.days.left.daysRemaining"));
+
+                                }
+
+                            }
+                            else
+                            {
+                                AJS.$('#days-box').empty();
+
+                                var futureVersionsWarning = AJS.$("<div />")
+                                        .attr('id', 'no-future-versions-warning')
+                                        .text(" - " + gadget.getMsg("gadget.days.left.noReleaseDatesWarning"))
+                                        .appendTo('#days-box');
+
+                                AJS.$("<a/>")
+                                        .attr({
+                                    href: projectLink,
+                                    id:"projectLink"})
+                                        .text(currentVersion.owningProject.name)
+                                        .prependTo(futureVersionsWarning)
+
+
+                            }
+                        };
+
+
+                        if (!projectVersionList)
+                        {
+                            var noVersionMsg = gadget.getMsg("gadget.days.left.noVersionWarning");
+                            gadget.getView().empty().append((noVersionMsg));
+
+                        }
+                        else
+                        {
+
+                            var container = getContainer().append("<div id='selection'/>");
+                            versionSelector(projectVersionList);
+                            daysLeftDisplay(projectVersionList, container);
+
+                            setTitle(projectVersionList);
+                        }
+
+                    },
+                    args: [
+                        {
+                            key: "versions",
+                            ajaxOptions: function ()
+                            {
+                                return {
+                                    url: "/rest/tutorial-gadget/1.0/days-left-in-iteration/getVersions",
+                                    data:  {
+                                        projectId : gadgets.util.unescapeString(this.getPref("projectId")),
+                                    }
+                                };
+                            }
+                        }
+                    ]
+
+                }
+            });
+        })();
+
+        </script>
+  ]]>
+  </Content>
+</Module>
